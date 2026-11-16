@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GDG WhatsApp Broadcast System</title>
+  <meta name="description" content="Production-grade WhatsApp Broadcast Engine with smart pacing, anti-detection queuing, live QR authentication, and real-time dispatch monitoring." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            },
+            dark: {
+              base: '#080c14',
+              surface: '#0f172a',
+              card: '#131d31',
+              border: '#1e293b',
+              input: '#0b1120',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #080c14;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0b1120;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #27354f;
+      border-radius: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #3b82f6;
+    }
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.75; transform: scale(1.04); }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 2.5s infinite ease-in-out;
+    }
+    @keyframes scan-line {
+      0% { top: 0%; opacity: 0.8; }
+      50% { top: 100%; opacity: 0.8; }
+      100% { top: 0%; opacity: 0.8; }
+    }
+    .scanner-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #10b981, transparent);
+      box-shadow: 0 0 10px #10b981;
+      animation: scan-line 3s infinite linear;
+    }
+  </style>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // Fallback if local socket.io.js is not loaded
+    if (typeof io === 'undefined') {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+      document.head.appendChild(script);
+    }
+  </script>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-dark-border bg-dark-base/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-0 sm:h-16 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 p-0.5 shadow-lg shadow-emerald-500/20 flex items-center justify-center shrink-0">
+          <div class="w-full h-full bg-dark-base rounded-[10px] flex items-center justify-center">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2M12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67M9.53 7.33C9.33 7.33 9.03 7.4 8.78 7.67C8.53 7.94 7.83 8.6 7.83 9.94C7.83 11.28 8.81 12.58 8.94 12.76C9.08 12.94 10.87 15.7 13.62 16.88C14.27 17.16 14.78 17.33 15.18 17.46C15.84 17.67 16.44 17.64 16.92 17.57C17.46 17.49 18.57 16.9 18.8 16.24C19.03 15.58 19.03 15.02 18.96 14.91C18.89 14.79 18.72 14.73 18.47 14.6C18.22 14.47 16.99 13.87 16.76 13.78C16.53 13.7 16.37 13.65 16.2 13.9C16.03 14.15 15.54 14.73 15.39 14.9C15.24 15.07 15.09 15.09 14.84 14.97C14.59 14.84 13.79 14.58 12.84 13.73C12.1 13.07 11.6 12.26 11.45 12.01C11.3 11.76 11.43 11.63 11.56 11.5C11.67 11.39 11.81 11.21 11.94 11.06C12.06 10.91 12.11 10.8 12.19 10.63C12.27 10.46 12.23 10.32 12.17 10.2C12.11 10.07 11.62 8.87 11.41 8.37C11.21 7.89 11 7.95 10.85 7.95C10.71 7.94 10.55 7.94 10.38 7.94C10.21 7.94 9.94 8 9.71 8.25C9.48 8.5 8.83 9.11 8.83 10.35C8.83 11.59 9.74 12.79 9.87 12.96C10 13.13 11.79 15.9 14.54 17.08C16.76 18.04 17.22 17.84 17.7 17.79C18.42 17.72 19.38 17.18 19.63 16.48C19.88 15.78 19.88 15.18 19.8 15.06C19.73 14.94 19.56 14.87 19.31 14.75L9.53 7.33Z"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="font-bold text-sm sm:text-base tracking-tight text-white">GDG on Campus</span>
+            <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">IET DAVV Indore</span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-slate-400">Autonomous WhatsApp Smart Broadcast Engine</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Developer Attribution Badge -->
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-slate-400">
+          <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+          <span class="text-slate-500">Dev:</span>
+          <span class="text-slate-200 font-semibold">Sajal Agrawal</span>
+        </div>
+
+        <!-- Live Server Status Indicator -->
+        <div id="live-server-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-slate-300">
+          <span class="relative flex h-2 w-2">
+            <span id="socket-ping-ring" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span id="socket-ping-dot" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span id="socket-status-text" class="font-mono">Syncing...</span>
+        </div>
+
+        <button id="btn-emergency-abort" class="hidden px-3 py-1.5 rounded-lg bg-red-950/40 text-red-400 border border-red-800/40 hover:bg-red-900/60 transition text-xs font-medium items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          Abort Dispatch
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Anti-Detection Protection Banner -->
+    <div class="rounded-xl bg-gradient-to-r from-emerald-950/30 via-slate-900 to-blue-950/30 border border-emerald-500/20 p-4 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div class="flex items-start gap-3">
+        <div class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mt-0.5">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-sm font-semibold text-white">Smart Anti-Abnormality Rate-Limit Engine Active</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Dispatches up to 800 contacts across 1–2 hours using Gaussian non-robotic jitter, human typing presence simulation (1.2s–2.5s), micro-batch breathers (45s–75s every ~45 msgs), and invisible zero-width cryptographic hash variations.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 self-end md:self-auto shrink-0">
+        <span class="text-[11px] font-mono px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-slate-300">Baileys WebSocket Multi-Device</span>
+      </div>
+    </div>
+
+    <!-- 3-Column / 3-Card Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- ============================================== -->
+      <!-- CARD 1: ACCOUNT LINK (3 or 4 cols)             -->
+      <!-- ============================================== -->
+      <section class="lg:col-span-4 flex flex-col">
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-xl flex-1 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-dark-border">
+              <div class="flex items-center gap-2.5">
+                <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center border border-emerald-500/30">1</span>
+                <h3 class="text-sm font-bold text-white tracking-wide">Account Link</h3>
+              </div>
+              <span id="wa-status-pill" class="text-xs font-mono px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                Checking...
+              </span>
+            </div>
+
+            <!-- UNLINKED VIEW: QR CODE -->
+            <div id="wa-unlinked-view" class="space-y-4">
+              <div class="relative w-64 h-64 mx-auto bg-white p-3 rounded-2xl shadow-2xl flex items-center justify-center border border-slate-700 overflow-hidden">
+                <img id="wa-qr-image" class="w-full h-full object-contain hidden" alt="WhatsApp QR Code" />
+                <div id="wa-qr-spinner" class="flex flex-col items-center justify-center text-slate-800 space-y-2">
+                  <svg class="animate-spin h-8 w-8 text-emerald-600" viewBox="0 0 24 24" fill="none">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span class="text-xs font-medium text-slate-600">Generating QR...</span>
+                </div>
+                <div id="scanner-line" class="scanner-line hidden"></div>
+              </div>
+
+              <!-- Manual Refresh QR Button -->
+              <div class="flex flex-col items-center gap-2 pt-1">
+                <button type="button" id="btn-refresh-qr" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition cursor-pointer active:scale-95">
+                  <svg id="refresh-qr-icon" class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                  <span id="refresh-qr-label">Refresh QR Code</span>
+                </button>
+                <span id="qr-expiry-hint" class="text-[10px] text-slate-500 font-mono">Live auto-refresh active</span>
+              </div>
+
+              <div class="space-y-2 text-center text-xs text-slate-400 pt-1">
+                <p class="font-medium text-slate-200">How to link your WhatsApp:</p>
+                <ol class="text-left space-y-1.5 pl-4 list-decimal text-slate-400">
+                  <li>Open WhatsApp on your mobile phone</li>
+                  <li>Tap <strong class="text-slate-300">Menu</strong> or <strong class="text-slate-300">Settings</strong> &gt; <strong class="text-slate-300">Linked Devices</strong></li>
+                  <li>Tap <strong class="text-slate-300">Link a Device</strong> and point your camera here</li>
+                </ol>
+                <p class="text-[11px] text-slate-500 pt-1">Session persists automatically in <code class="text-emerald-400">./wa_auth_session</code> across restarts.</p>
+              </div>
+            </div>
+
+            <!-- CONNECTED VIEW: PROFILE BADGE -->
+            <div id="wa-connected-view" class="hidden space-y-6 pt-4">
+              <div class="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex items-center gap-4">
+                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-emerald-500/20">
+                  <span id="wa-user-initial">W</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Active Device</span>
+                  </div>
+                  <h4 id="wa-user-name" class="text-base font-bold text-white truncate mt-0.5">Connected User</h4>
+                  <p id="wa-user-phone" class="text-xs font-mono text-slate-400 truncate">+91 00000 00000</p>
+                </div>
+              </div>
+
+              <div class="p-3.5 rounded-xl bg-dark-input border border-dark-border space-y-2 text-xs">
+                <div class="flex justify-between text-slate-400">
+                  <span>Engine:</span>
+                  <span class="font-mono text-slate-200">Baileys WebSocket</span>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                  <span>Multi-File Auth:</span>
+                  <span class="text-emerald-400 font-medium">Encrypted &amp; Persistent</span>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                  <span>Rate Limit Guard:</span>
+                  <span class="text-emerald-400 font-medium">Gaussian Stochastic</span>
+                </div>
+              </div>
+
+              <button id="btn-unlink-wa" class="w-full py-2.5 px-4 rounded-xl bg-red-950/30 text-red-400 border border-red-800/40 hover:bg-red-900/50 hover:text-red-300 transition text-xs font-medium flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                Unlink WhatsApp Account
+              </button>
+            </div>
+          </div>
+
+          <div class="pt-6 border-t border-dark-border/50 text-[11px] text-slate-500 flex items-center justify-between">
+            <span>Server: Node.js Express</span>
+            <span class="text-emerald-500 font-mono">Port 3000</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- CARD 2: RECIPIENTS & MESSAGE (4 or 5 cols)     -->
+      <!-- ============================================== -->
+      <section class="lg:col-span-4 flex flex-col">
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-xl flex-1 flex flex-col justify-between space-y-5">
+          <div class="space-y-5">
+            <div class="flex items-center justify-between pb-4 border-b border-dark-border">
+              <div class="flex items-center gap-2.5">
+                <span class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold text-xs flex items-center justify-center border border-blue-500/30">2</span>
+                <h3 class="text-sm font-bold text-white tracking-wide">Recipients &amp; Message</h3>
+              </div>
+              <button id="btn-load-demo" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                Load Demo (50)
+              </button>
+            </div>
+
+            <!-- Contacts Input -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <div>
+                  <label for="contacts-input" class="font-semibold text-slate-300">Recipient Phone Numbers</label>
+                  <span class="text-[10px] text-slate-400 block font-normal">Space-separated ("9800000001" "9800000002" ...), newlines, or CSV</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="file" id="csv-file-input" accept=".csv,.txt" class="hidden" />
+                  <button type="button" id="btn-upload-csv" class="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    Upload CSV / TXT
+                  </button>
+                </div>
+              </div>
+              
+              <textarea 
+                id="contacts-input" 
+                rows="5" 
+                placeholder="Paste numbers (up to 800 contacts)&#10;Formats: Space-separated (&quot;First&quot; &quot;Second&quot; ... or 9876543210 9876543211 ...), newlines, or CSV (9876543210, Name)&#10;Indian 10-digit numbers auto-prefixed with 91"
+                class="w-full bg-dark-input border border-dark-border rounded-xl p-3 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 resize-none custom-scrollbar"
+              ></textarea>
+
+              <!-- Live Counter & Validation Info -->
+              <div class="flex items-center justify-between text-xs">
+                <span id="contacts-counter-badge" class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono text-[11px] border border-slate-700">
+                  0 valid numbers detected (Max 800)
+                </span>
+                <span id="contacts-duplicates-badge" class="text-[11px] text-amber-400 hidden">
+                  0 duplicates filtered
+                </span>
+              </div>
+            </div>
+
+            <!-- Message Composer -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <label for="message-input" class="font-semibold text-slate-300">Message Content</label>
+                <div class="flex items-center gap-1">
+                  <button type="button" id="btn-toggle-preview" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium">
+                    Preview Sample
+                  </button>
+                </div>
+              </div>
+
+              <!-- Quick Placeholders Pill Toolbar -->
+              <div class="flex flex-wrap gap-1.5 pb-1">
+                <button type="button" data-tag="{name}" class="tag-insert-btn text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono">+ {name}</button>
+                <button type="button" data-tag="{greeting}" class="tag-insert-btn text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono">+ {greeting}</button>
+                <button type="button" data-tag="{phone}" class="tag-insert-btn text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono">+ {phone}</button>
+                <button type="button" data-tag="{time}" class="tag-insert-btn text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono">+ {time}</button>
+                <button type="button" data-tag="{ref}" class="tag-insert-btn text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono">+ {ref}</button>
+              </div>
+
+              <div class="relative">
+                <textarea 
+                  id="message-input" 
+                  rows="5" 
+                  placeholder="Hey {name}! Join us for the upcoming GDG on Campus session at IET DAVV Indore. Reply to confirm your seat!"
+                  class="w-full bg-dark-input border border-dark-border rounded-xl p-3 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 resize-none custom-scrollbar"
+                ></textarea>
+
+                <!-- Sample Message Preview Overlay -->
+                <div id="message-preview-box" class="hidden absolute inset-0 bg-dark-card border border-emerald-500/40 rounded-xl p-3 text-xs overflow-y-auto custom-scrollbar">
+                  <div class="flex items-center justify-between pb-1.5 mb-2 border-b border-dark-border text-[11px] text-emerald-400 font-semibold">
+                    <span>Dynamic Message Preview (Sample)</span>
+                    <button id="btn-close-preview" class="text-slate-400 hover:text-white">&times; Close</button>
+                  </div>
+                  <div id="message-preview-text" class="text-slate-200 whitespace-pre-wrap font-sans"></div>
+                  <div class="mt-3 pt-2 border-t border-dark-border/50 text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                    <span>Invisible hash entropy: Attached</span>
+                    <span id="preview-hash-badge" class="text-emerald-400">#sha256-rand</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between text-[11px] text-slate-500">
+                <span id="char-word-counter">0 chars • 0 words</span>
+                <span class="text-slate-400">Unique hash per recipient</span>
+              </div>
+            </div>
+
+            <!-- Pacing Selector -->
+            <div class="space-y-3 pt-2 border-t border-dark-border">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-semibold text-slate-300">Pacing Window &amp; Anti-Ban Engine</label>
+                <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/40 text-emerald-400 border border-emerald-800/40">
+                  <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                  Anti-Suspension Guard Active
+                </span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+                <button type="button" data-mode="fast" class="pacing-pill-btn p-2 rounded-xl border text-center transition flex flex-col items-center border-dark-border bg-dark-input hover:border-slate-600">
+                  <span class="text-xs font-bold text-slate-300">Fast</span>
+                  <span class="text-[10px] text-slate-400 mt-0.5 font-medium">~1.0 Hr</span>
+                  <span class="text-[9px] text-slate-500 font-mono mt-0.5">4.5s base</span>
+                </button>
+
+                <button type="button" data-mode="balanced" class="pacing-pill-btn p-2 rounded-xl border text-center transition flex flex-col items-center border-emerald-500/50 bg-emerald-950/20 shadow-sm shadow-emerald-500/10">
+                  <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full border mb-1 bg-emerald-500/20 text-emerald-300 border-emerald-500/30">Default</span>
+                  <span class="text-xs font-bold text-emerald-300 flex items-center gap-1">
+                    Balanced
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  </span>
+                  <span class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">~1.5 Hrs</span>
+                  <span class="text-[9px] text-slate-400 font-mono mt-0.5">6.8s base</span>
+                </button>
+
+                <button type="button" data-mode="safe" class="pacing-pill-btn p-2 rounded-xl border text-center transition flex flex-col items-center border-dark-border bg-dark-input hover:border-slate-600">
+                  <span class="text-xs font-bold text-slate-300">Safe</span>
+                  <span class="text-[10px] text-slate-400 mt-0.5 font-medium">~2.0 Hrs</span>
+                  <span class="text-[9px] text-slate-500 font-mono mt-0.5">9.2s base</span>
+                </button>
+
+                <button type="button" data-mode="ultra_safe" class="pacing-pill-btn p-2 rounded-xl border text-center transition flex flex-col items-center border-dark-border bg-dark-input hover:border-slate-600">
+                  <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full border mb-1 bg-cyan-500/20 text-cyan-300 border-cyan-500/30">4 Hours</span>
+                  <span class="text-xs font-bold text-slate-300">Ultra Safe</span>
+                  <span class="text-[10px] text-slate-400 mt-0.5 font-medium">~4.0 Hrs</span>
+                  <span class="text-[9px] text-slate-500 font-mono mt-0.5">14.5s base</span>
+                </button>
+
+                <button type="button" data-mode="guardian_8h" class="pacing-pill-btn p-2 rounded-xl border text-center transition flex flex-col items-center border-dark-border bg-dark-input hover:border-slate-600">
+                  <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full border mb-1 bg-amber-500/20 text-amber-300 border-amber-500/30">0% Risk</span>
+                  <span class="text-xs font-bold text-slate-300">Guardian</span>
+                  <span class="text-[10px] text-slate-400 mt-0.5 font-medium">~8.0 Hrs</span>
+                  <span class="text-[9px] text-slate-500 font-mono mt-0.5">29s base</span>
+                </button>
+
+                <button type="button" data-mode="over_safe" class="pacing-pill-btn p-2 rounded-xl border text-center transition flex flex-col items-center border-dark-border bg-dark-input hover:border-slate-600">
+                  <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full border mb-1 bg-emerald-500/20 text-emerald-300 border-emerald-500/30">360s-514s Jitter</span>
+                  <span class="text-xs font-bold text-slate-300">Over Safe</span>
+                  <span class="text-[10px] text-slate-400 mt-0.5 font-medium">Random Jitter</span>
+                  <span class="text-[9px] text-slate-500 font-mono mt-0.5">360s-514s</span>
+                </button>
+              </div>
+
+              <!-- Pacing Detail Banner -->
+              <div id="pacing-detail-banner" class="p-3 rounded-xl border text-xs space-y-1 bg-dark-input border-dark-border">
+                <div class="flex items-center justify-between text-slate-300 font-semibold">
+                  <span id="pacing-banner-title">Balanced Profile (~1.5 Hrs)</span>
+                  <span id="pacing-banner-risk" class="text-[10px] text-emerald-400">Very Low Risk</span>
+                </div>
+                <p id="pacing-banner-desc" class="text-[11px] text-slate-400">
+                  Recommended default for GDG chapter broadcasts. Combines human typing with steady throughput.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- CARD 3: 1-CLICK DISPATCH & LIVE MONITOR (4 col)-->
+      <!-- ============================================== -->
+      <section class="lg:col-span-4 flex flex-col">
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-xl flex-1 flex flex-col justify-between space-y-6">
+          <div class="space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-dark-border">
+              <div class="flex items-center gap-2.5">
+                <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center border border-emerald-500/30">3</span>
+                <h3 class="text-sm font-bold text-white tracking-wide">1-Click Dispatch &amp; Monitor</h3>
+              </div>
+              <span id="queue-status-tag" class="text-xs font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                Idle
+              </span>
+            </div>
+
+            <!-- Primary 1-Click Action Button -->
+            <div class="space-y-2">
+              <button 
+                id="btn-start-dispatch" 
+                class="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm tracking-wide shadow-lg shadow-emerald-600/30 transition transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none"
+              >
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span>Start 1-Click Dispatch</span>
+              </button>
+
+              <!-- Queue Control Buttons (Pause, Resume, Reset) -->
+              <div id="queue-active-controls" class="hidden grid-cols-2 gap-2 pt-1">
+                <button id="btn-toggle-pause" class="py-2 px-3 rounded-lg bg-amber-950/40 text-amber-300 border border-amber-800/40 hover:bg-amber-900/60 transition text-xs font-medium flex items-center justify-center gap-1.5">
+                  <svg id="pause-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <span id="pause-btn-text">Pause Queue</span>
+                </button>
+                <button id="btn-abort-queue" class="py-2 px-3 rounded-lg bg-red-950/40 text-red-300 border border-red-800/40 hover:bg-red-900/60 transition text-xs font-medium flex items-center justify-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  <span>Abort Dispatch</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Real-Time Progress Bar -->
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs">
+                <span class="font-semibold text-slate-300">Broadcast Progress</span>
+                <span id="progress-percentage" class="font-mono text-emerald-400 font-bold">0%</span>
+              </div>
+              <div class="w-full h-3 bg-dark-input rounded-full overflow-hidden p-0.5 border border-dark-border">
+                <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Key Metrics Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div class="bg-dark-input border border-dark-border rounded-xl p-2.5 text-center">
+                <div class="text-[10px] text-slate-400 uppercase font-medium">Dispatched</div>
+                <div id="stat-sent" class="text-base font-bold text-white font-mono mt-0.5">0</div>
+                <div id="stat-total" class="text-[9px] text-slate-500 font-mono">/ 0 contacts</div>
+              </div>
+
+              <div class="bg-dark-input border border-dark-border rounded-xl p-2.5 text-center">
+                <div class="text-[10px] text-slate-400 uppercase font-medium">Skipped</div>
+                <div id="stat-skipped" class="text-base font-bold text-amber-400 font-mono mt-0.5">0</div>
+                <div class="text-[9px] text-slate-500">Not on WA</div>
+              </div>
+
+              <div class="bg-dark-input border border-dark-border rounded-xl p-2.5 text-center">
+                <div class="text-[10px] text-slate-400 uppercase font-medium">Failed</div>
+                <div id="stat-failed" class="text-base font-bold text-red-400 font-mono mt-0.5">0</div>
+                <div class="text-[9px] text-slate-500">Errors</div>
+              </div>
+
+              <div class="bg-dark-input border border-dark-border rounded-xl p-2.5 text-center">
+                <div class="text-[10px] text-slate-400 uppercase font-medium">ETA Left</div>
+                <div id="stat-eta" class="text-base font-bold text-emerald-400 font-mono mt-0.5">0s</div>
+                <div class="text-[9px] text-slate-500">Paced window</div>
+              </div>
+            </div>
+
+            <!-- Live Status Banner -->
+            <div class="p-3.5 rounded-xl bg-dark-input border border-dark-border flex items-start gap-3">
+              <span class="relative flex h-3 w-3 mt-0.5 shrink-0">
+                <span id="status-pulse-ring" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 hidden"></span>
+                <span id="status-pulse-dot" class="relative inline-flex rounded-full h-3 w-3 bg-slate-500"></span>
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Engine State</div>
+                <div id="status-message-text" class="text-xs text-slate-200 font-medium truncate mt-0.5">
+                  Queue is idle. Configure contacts and message to dispatch.
+                </div>
+              </div>
+            </div>
+
+            <!-- Batch Breather Countdown (Shown during micro-batch pause) -->
+            <div id="cooldown-banner" class="hidden p-3 rounded-xl bg-amber-950/30 border border-amber-500/40 text-xs space-y-1">
+              <div class="flex items-center justify-between text-amber-300 font-semibold">
+                <span class="flex items-center gap-1.5">
+                  <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  Anti-Ban Batch Breather
+                </span>
+                <span id="cooldown-timer-text" class="font-mono text-amber-200 font-bold">45s remaining</span>
+              </div>
+              <p class="text-[11px] text-amber-400/80">Taking an automated human break after dispatching a batch to keep server request patterns completely organic.</p>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-dark-border/50 text-[11px] text-slate-500 flex items-center justify-between">
+            <span>Runs autonomously in background</span>
+            <span class="text-slate-400">Safe tab close/reload</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ============================================== -->
+    <!-- REAL-TIME CONSOLE LOG MONITOR (Full width)     -->
+    <!-- ============================================== -->
+    <section class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-dark-border">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+          <h3 class="text-sm font-bold text-white tracking-wide">Live Real-Time Activity Log</h3>
+          <span class="text-xs text-slate-400 font-mono" id="log-count-text">(0 events)</span>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-800/40 flex items-center gap-1 font-sans">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            Privacy Masked (Numbers Protected)
+          </span>
+          <button id="btn-export-log" class="text-xs px-2.5 py-1 rounded-lg bg-dark-input hover:bg-slate-800 text-slate-300 border border-dark-border transition flex items-center gap-1 font-mono">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Export Log
+          </button>
+          <button id="btn-clear-log" class="text-xs px-2.5 py-1 rounded-lg bg-dark-input hover:bg-red-950/40 hover:text-red-300 hover:border-red-800/40 text-slate-400 border border-dark-border transition font-mono flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            Purge Logs
+          </button>
+        </div>
+      </div>
+
+      <div id="terminal-logs-container" class="h-48 overflow-y-auto font-mono text-xs space-y-1.5 p-3 rounded-xl bg-dark-input border border-dark-border/80 custom-scrollbar">
+        <div class="text-slate-500 italic">Waiting for queue activity...</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-dark-border/80 pt-8 pb-10 mt-12 bg-dark-base/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 pb-6 border-b border-dark-border/60">
+        <!-- Left: Project & Organization -->
+        <div class="flex items-center gap-3 text-center md:text-left">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-emerald-500/20 shrink-0">
+            <span class="font-mono text-sm">GDG</span>
+          </div>
+          <div>
+            <div class="flex items-center justify-center md:justify-start gap-2">
+              <h4 class="font-bold text-sm text-white">Google Developer Groups on Campus</h4>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                IET DAVV Indore
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Autonomous WhatsApp Smart Broadcast Engine • Safe Multi-Device Architecture</p>
+          </div>
+        </div>
+
+        <!-- Right: Professional Developer Credit Card -->
+        <div class="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-dark-input border border-dark-border shadow-sm hover:border-emerald-500/30 transition">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+          </div>
+          <div class="text-left">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Website Developed by</div>
+            <div class="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
+              <span>Sajal Agrawal</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+        <p>
+          &copy; 2025 <strong>GDG on Campus IET DAVV Indore</strong>. Website developed by <span class="text-slate-300 font-medium">Sajal Agrawal</span>.
+        </p>
+        <div class="flex items-center gap-3 text-[11px] font-mono text-slate-400">
+          <span class="flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Anti-Ban Safeguards
+          </span>
+          <span>•</span>
+          <span>Zero-Telemetry Privacy</span>
+          <span>•</span>
+          <span>Baileys Engine</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Frontend Logic -->
+  <script>
+    // State variables
+    let socket = null;
+    let selectedPacingMode = 'balanced';
+    let currentWAState = { connectionState: 'disconnected', qrCodeDataUrl: null, accountInfo: null };
+    let currentQueueState = { status: 'idle', total: 0, sent: 0, skipped: 0, failed: 0, logs: [] };
+    let parsedContactsCache = [];
+
+    // Initialize Socket.io Connection
+    function initSocket() {
+      try {
+        socket = io({ reconnectionAttempts: 20, reconnectionDelay: 2000 });
+
+        socket.on('connect', () => {
+          document.getElementById('socket-status-text').textContent = 'Connected (Sync)';
+          document.getElementById('socket-status-text').className = 'font-mono text-emerald-400';
+          document.getElementById('socket-ping-dot').className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
+          document.getElementById('socket-ping-ring').classList.remove('hidden');
+          socket.emit('request_state');
+        });
+
+        socket.on('disconnect', () => {
+          document.getElementById('socket-status-text').textContent = 'Offline (Reconnecting)';
+          document.getElementById('socket-status-text').className = 'font-mono text-red-400';
+          document.getElementById('socket-ping-dot').className = 'relative inline-flex rounded-full h-2 w-2 bg-red-500';
+          document.getElementById('socket-ping-ring').classList.add('hidden');
+        });
+
+        socket.on('wa_status', (state) => {
+          currentWAState = state;
+          renderWAStatus(state);
+        });
+
+        socket.on('queue_state', (state) => {
+          currentQueueState = state;
+          renderQueueState(state);
+        });
+
+        socket.on('dispatch_action_result', (result) => {
+          if (!result.success && result.error) {
+            alert(result.error);
+          }
+        });
+      } catch (err) {
+        console.error('Socket init error:', err);
+      }
+    }
+
+    // Render WhatsApp Account Link State
+    function renderWAStatus(state) {
+      const pill = document.getElementById('wa-status-pill');
+      const unlinkedView = document.getElementById('wa-unlinked-view');
+      const connectedView = document.getElementById('wa-connected-view');
+      const qrImg = document.getElementById('wa-qr-image');
+      const qrSpinner = document.getElementById('wa-qr-spinner');
+      const scannerLine = document.getElementById('scanner-line');
+      const startBtn = document.getElementById('btn-start-dispatch');
+      const refreshBtn = document.getElementById('btn-refresh-qr');
+      const expiryHint = document.getElementById('qr-expiry-hint');
+
+      if (state.connectionState === 'connected') {
+        pill.textContent = 'Connected';
+        pill.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+
+        unlinkedView.classList.add('hidden');
+        connectedView.classList.remove('hidden');
+
+        const info = state.accountInfo || {};
+        document.getElementById('wa-user-name').textContent = info.name || 'Authorized Account';
+        document.getElementById('wa-user-phone').textContent = info.phone ? `+${info.phone}` : 'Connected';
+        document.getElementById('wa-user-initial').textContent = (info.name ? info.name[0] : 'W').toUpperCase();
+
+        startBtn.disabled = false;
+      } else if (state.qrCodeDataUrl) {
+        // QR Code is available
+        pill.textContent = 'Scan QR Code';
+        pill.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20';
+
+        unlinkedView.classList.remove('hidden');
+        connectedView.classList.add('hidden');
+
+        qrImg.src = state.qrCodeDataUrl;
+        qrImg.classList.remove('hidden');
+        qrSpinner.classList.add('hidden');
+        scannerLine.classList.remove('hidden');
+        if (expiryHint) expiryHint.textContent = 'QR active • Auto-refreshes seamlessly';
+
+        startBtn.disabled = true;
+      } else {
+        pill.textContent = state.connectionState === 'connecting' ? 'Generating QR...' : 'Preparing Engine...';
+        pill.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20';
+
+        unlinkedView.classList.remove('hidden');
+        connectedView.classList.add('hidden');
+
+        qrImg.classList.add('hidden');
+        qrSpinner.classList.remove('hidden');
+        scannerLine.classList.add('hidden');
+        if (expiryHint) expiryHint.textContent = 'Requesting fresh QR from WhatsApp...';
+
+        startBtn.disabled = true;
+      }
+    }
+
+    // Render Queue State & Metrics
+    function renderQueueState(state) {
+      const statusTag = document.getElementById('queue-status-tag');
+      const startBtn = document.getElementById('btn-start-dispatch');
+      const activeControls = document.getElementById('queue-active-controls');
+      const emergencyAbort = document.getElementById('btn-emergency-abort');
+      const pauseBtnText = document.getElementById('pause-btn-text');
+      const statusText = document.getElementById('status-message-text');
+      const pulseDot = document.getElementById('status-pulse-dot');
+      const pulseRing = document.getElementById('status-pulse-ring');
+      const cooldownBanner = document.getElementById('cooldown-banner');
+
+      // Update Tag
+      statusTag.textContent = state.status.toUpperCase();
+      if (state.status === 'running') {
+        statusTag.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      } else if (state.status === 'cooldown') {
+        statusTag.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      } else if (state.status === 'paused') {
+        statusTag.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30';
+      } else if (state.status === 'completed') {
+        statusTag.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30';
+      } else if (state.status === 'aborted') {
+        statusTag.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30';
+      } else {
+        statusTag.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+      }
+
+      // Progress calculation
+      const processed = state.sent + state.skipped + state.failed;
+      const pct = state.total > 0 ? Math.min(100, Math.round((processed / state.total) * 100)) : 0;
+      document.getElementById('progress-percentage').textContent = `${pct}%`;
+      document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+
+      // Metrics numbers
+      document.getElementById('stat-sent').textContent = state.sent;
+      document.getElementById('stat-total').textContent = `/ ${state.total} contacts`;
+      document.getElementById('stat-skipped').textContent = state.skipped;
+      document.getElementById('stat-failed').textContent = state.failed;
+      document.getElementById('stat-eta').textContent = state.etaFormatted || '0s';
+
+      // Status message
+      statusText.textContent = state.statusMessage;
+
+      // Pulse and control buttons state
+      if (state.status === 'running' || state.status === 'cooldown' || state.status === 'paused') {
+        pulseDot.className = 'relative inline-flex rounded-full h-3 w-3 ' + (state.status === 'cooldown' ? 'bg-amber-400' : state.status === 'paused' ? 'bg-blue-400' : 'bg-emerald-400');
+        if (state.status === 'running' || state.status === 'cooldown') {
+          pulseRing.classList.remove('hidden');
+        } else {
+          pulseRing.classList.add('hidden');
+        }
+        startBtn.classList.add('hidden');
+        activeControls.classList.remove('hidden');
+        activeControls.classList.add('grid');
+        emergencyAbort.classList.remove('hidden');
+        emergencyAbort.classList.add('flex');
+      } else {
+        pulseDot.className = 'relative inline-flex rounded-full h-3 w-3 ' + (state.status === 'aborted' ? 'bg-red-400' : 'bg-slate-500');
+        pulseRing.classList.add('hidden');
+        startBtn.classList.remove('hidden');
+        activeControls.classList.add('hidden');
+        activeControls.classList.remove('grid');
+        emergencyAbort.classList.add('hidden');
+        emergencyAbort.classList.remove('flex');
+
+        const abortBtnText = document.querySelector('#btn-abort-queue span');
+        if (abortBtnText) abortBtnText.textContent = 'Abort Dispatch';
+      }
+
+      // Pause button state
+      if (state.status === 'paused') {
+        pauseBtnText.textContent = 'Resume Queue';
+      } else {
+        pauseBtnText.textContent = 'Pause Queue';
+      }
+
+      // Micro-batch cooldown banner
+      if (state.status === 'cooldown') {
+        cooldownBanner.classList.remove('hidden');
+        document.getElementById('cooldown-timer-text').textContent = `${state.cooldownRemainingSeconds}s remaining`;
+      } else {
+        cooldownBanner.classList.add('hidden');
+      }
+
+      // Render Logs
+      renderLogs(state.logs);
+    }
+
+    // Render Real-time Activity Logs
+    function renderLogs(logs) {
+      const container = document.getElementById('terminal-logs-container');
+      document.getElementById('log-count-text').textContent = `(${logs ? logs.length : 0} events)`;
+
+      if (!logs || logs.length === 0) {
+        container.innerHTML = '<div class="text-slate-500 italic">Waiting for queue activity...</div>';
+        return;
+      }
+
+      container.innerHTML = logs.map(l => {
+        let badgeColor = 'bg-slate-800 text-slate-300';
+        if (l.level === 'success') badgeColor = 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40';
+        if (l.level === 'warn') badgeColor = 'bg-amber-950/60 text-amber-400 border border-amber-800/40';
+        if (l.level === 'error') badgeColor = 'bg-red-950/60 text-red-400 border border-red-800/40';
+        if (l.level === 'cooldown') badgeColor = 'bg-cyan-950/60 text-cyan-400 border border-cyan-800/40';
+
+        const digestBadge = l.digest ? `<span class="text-[10px] text-slate-500 font-mono">(${l.digest})</span>` : '';
+
+        return `
+          <div class="flex items-start gap-2 text-slate-300 hover:bg-slate-800/40 p-1 rounded transition">
+            <span class="text-slate-500 shrink-0 select-none">[${l.timestamp}]</span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] uppercase font-semibold shrink-0 ${badgeColor}">${l.level}</span>
+            <span class="flex-1 break-all">${escapeHtml(l.message)} ${digestBadge}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+      });
+    }
+
+    // Parse and Validate Contacts from Textarea Input
+    async function validateContactsInput() {
+      const text = document.getElementById('contacts-input').value;
+      const counterBadge = document.getElementById('contacts-counter-badge');
+      const dupesBadge = document.getElementById('contacts-duplicates-badge');
+
+      if (!text.trim()) {
+        counterBadge.textContent = '0 valid numbers detected (Max 800)';
+        counterBadge.className = 'px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono text-[11px] border border-slate-700';
+        dupesBadge.classList.add('hidden');
+        parsedContactsCache = [];
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/contacts/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, max: 800 })
+        });
+        const data = await res.json();
+
+        parsedContactsCache = data.contacts || [];
+
+        counterBadge.textContent = `${data.validCount} valid numbers detected (Max 800)`;
+        if (data.validCount > 0) {
+          counterBadge.className = 'px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-[11px] border border-emerald-500/30';
+        } else {
+          counterBadge.className = 'px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-mono text-[11px] border border-red-500/30';
+        }
+
+        if (data.duplicatesCount > 0) {
+          dupesBadge.textContent = `${data.duplicatesCount} duplicate numbers omitted`;
+          dupesBadge.classList.remove('hidden');
+        } else {
+          dupesBadge.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error('Validation error:', err);
+      }
+    }
+
+    // Debounced Contact Input listener
+    let debounceTimer = null;
+    document.getElementById('contacts-input').addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(validateContactsInput, 250);
+    });
+
+    // Message Character & Word Counter
+    const messageInput = document.getElementById('message-input');
+    const charWordCounter = document.getElementById('char-word-counter');
+
+    messageInput.addEventListener('input', () => {
+      const text = messageInput.value;
+      const chars = text.length;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      charWordCounter.textContent = `${chars} chars • ${words} words`;
+    });
+
+    // Quick Insert Template Placeholder Tags
+    document.querySelectorAll('.tag-insert-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tag = btn.getAttribute('data-tag');
+        const start = messageInput.selectionStart;
+        const end = messageInput.selectionEnd;
+        const text = messageInput.value;
+        messageInput.value = text.substring(0, start) + tag + text.substring(end);
+        messageInput.focus();
+        messageInput.selectionStart = messageInput.selectionEnd = start + tag.length;
+        messageInput.dispatchEvent(new Event('input'));
+      });
+    });
+
+    // Pacing Pill Selector
+    const PACING_INFO = {
+      fast: { title: 'Fast Profile (~1.0 Hr)', risk: 'Standard Risk', desc: '4.5s base interval. Rapid dispatch for warm groups, existing event participants, or time-critical alerts.' },
+      balanced: { title: 'Balanced Profile (~1.5 Hrs)', risk: 'Very Low Risk', desc: '6.8s base interval. Recommended default for GDG chapter broadcasts. Combines human typing with steady throughput.' },
+      safe: { title: 'Safe Profile (~2.0 Hrs)', risk: 'Extremely Low Risk', desc: '9.2s base interval with 70s batch breathers. Conservative broadcast rate for mixed contact lists and large announcements.' },
+      ultra_safe: { title: 'Ultra Safe Profile (~4.0 Hrs)', risk: 'Near 0% Risk (Stealth Shield)', desc: '14.5s base interval with 2-minute pauses every 30 messages. Extended 4-hour stealth pacing; ideal for large unverified recipient lists.' },
+      guardian_8h: { title: 'Guardian Profile (~8.0 Hrs)', risk: 'Absolute 0% Risk (Full Day Rhythm)', desc: '29s base interval with 4-minute coffee breaks every 25 messages. Full 8-hour workday human simulation that completely eliminates automated burst flags.' },
+      over_safe: { title: 'Over Safe Profile (360s - 514s Jitter)', risk: 'Absolute 0% Risk (360s-514s Random Jitter)', desc: 'Randomized 360s to 514s interval (6.0m–8.57m per message). Each message is sent with a totally random time gap between 360 and 514 seconds to eliminate robotic periodic patterns.' }
+    };
+
+    document.querySelectorAll('.pacing-pill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-mode');
+        selectedPacingMode = mode;
+
+        document.querySelectorAll('.pacing-pill-btn').forEach(b => {
+          b.className = 'pacing-pill-btn p-2 rounded-xl border text-center transition flex flex-col items-center border-dark-border bg-dark-input hover:border-slate-600';
+          const title = b.querySelector('.font-bold');
+          if (title) title.className = 'text-xs font-bold text-slate-300';
+        });
+
+        btn.className = 'pacing-pill-btn p-2 rounded-xl border text-center transition flex flex-col items-center border-emerald-500/50 bg-emerald-950/20 shadow-sm shadow-emerald-500/10';
+        const title = btn.querySelector('.font-bold');
+        if (title) title.className = 'text-xs font-bold text-emerald-300 flex items-center gap-1';
+
+        // Update details banner
+        const info = PACING_INFO[mode] || PACING_INFO.balanced;
+        const bannerTitle = document.getElementById('pacing-banner-title');
+        const bannerRisk = document.getElementById('pacing-banner-risk');
+        const bannerDesc = document.getElementById('pacing-banner-desc');
+        if (bannerTitle) bannerTitle.textContent = info.title;
+        if (bannerRisk) {
+          bannerRisk.textContent = info.risk;
+          bannerRisk.className = (mode === 'guardian_8h' || mode === 'ultra_safe' || mode === 'over_safe') 
+            ? 'text-[10px] font-bold text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-500/40' 
+            : 'text-[10px] text-emerald-400';
+        }
+        if (bannerDesc) bannerDesc.textContent = info.desc;
+      });
+    });
+
+    // Preview Toggle
+    const previewBox = document.getElementById('message-preview-box');
+    const previewText = document.getElementById('message-preview-text');
+    const previewHashBadge = document.getElementById('preview-hash-badge');
+
+    document.getElementById('btn-toggle-preview').addEventListener('click', () => {
+      const template = messageInput.value || 'Hello {name}! Greetings from GDG on Campus IET DAVV Indore.';
+      const sampleContact = parsedContactsCache[0] || { name: 'Aman Sharma', phone: '919876543210' };
+
+      const now = new Date();
+      let resolved = template
+        .replace(/\{name\}/gi, sampleContact.name)
+        .replace(/\{first_name\}/gi, sampleContact.name.split(' ')[0])
+        .replace(/\{phone\}/gi, sampleContact.phone)
+        .replace(/\{number\}/gi, sampleContact.phone)
+        .replace(/\{date\}/gi, now.toLocaleDateString())
+        .replace(/\{time\}/gi, now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+        .replace(/\{greeting\}/gi, 'Hello')
+        .replace(/\{ref\}/gi, 'GDG-4A9F');
+
+      previewText.textContent = resolved;
+      previewHashBadge.textContent = `#${Math.random().toString(16).substring(2, 8)}`;
+      previewBox.classList.remove('hidden');
+    });
+
+    document.getElementById('btn-close-preview').addEventListener('click', () => {
+      previewBox.classList.add('hidden');
+    });
+
+    // Load Demo Contacts Button
+    document.getElementById('btn-load-demo').addEventListener('click', () => {
+      const demoNames = [
+        'Aarav Sharma', 'Aditi Patel', 'Rohan Verma', 'Sneha Gupta', 'Ishaan Joshi',
+        'Ananya Iyer', 'Kabir Malhotra', 'Diya Choudhury', 'Vihaan Reddy', 'Pooja Nair',
+        'Karan Kapoor', 'Riya Mehra', 'Aditya Singh', 'Tanvi Bhat', 'Manish Saxena',
+        'Shreya Pandey', 'Harsh Agarwal', 'Neha Deshmukh', 'Yash Rao', 'Kavya Jain',
+        'Aryan Trivedi', 'Meera Kulkarni', 'Siddharth Dubey', 'Priya Menon', 'Nikhil Ghosh',
+        'Deepika Sen', 'Vikram Yadav', 'Anushka Shah', 'Gaurav Das', 'Divya Chauhan',
+        'Rahul Mishra', 'Bhavna Tiwari', 'Abhishek Rawat', 'Kritika Roy', 'Saurabh Shukla',
+        'Simran Gill', 'Varun Somani', 'Mehak Arora', 'Arjun Nambiar', 'Swati Pathak',
+        'Pranav Hegde', 'Richa Pillai', 'Mohit Soni', 'Shruti Bajaj', 'Kunal Merchant',
+        'Geeta Goswami', 'Chirag Parekh', 'Pallavi Sen', 'Alok Mathur', 'Nandini Kaul'
+      ];
+
+      const lines = demoNames.map((name, i) => {
+        const phone = 9800000000 + i * 1111;
+        return `${phone}, ${name}`;
+      });
+
+      document.getElementById('contacts-input').value = lines.join('\n');
+      validateContactsInput();
+    });
+
+    // CSV File Upload
+    const csvFileInput = document.getElementById('csv-file-input');
+    document.getElementById('btn-upload-csv').addEventListener('click', () => {
+      csvFileInput.click();
+    });
+
+    csvFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target.result;
+        document.getElementById('contacts-input').value = content;
+        validateContactsInput();
+      };
+      reader.readAsText(file);
+    });
+
+    // Start 1-Click Dispatch Action
+    document.getElementById('btn-start-dispatch').addEventListener('click', () => {
+      const contactsRaw = document.getElementById('contacts-input').value;
+      const message = document.getElementById('message-input').value;
+
+      if (!contactsRaw.trim()) {
+        alert('Please add at least one recipient phone number.');
+        document.getElementById('contacts-input').focus();
+        return;
+      }
+
+      if (!message.trim()) {
+        alert('Please write a message to broadcast.');
+        document.getElementById('message-input').focus();
+        return;
+      }
+
+      if (currentWAState.connectionState !== 'connected') {
+        alert('Please link your WhatsApp account by scanning the QR code first.');
+        return;
+      }
+
+      if (socket) {
+        socket.emit('start_dispatch', {
+          contactsRaw,
+          message,
+          pacingMode: selectedPacingMode,
+        });
+      }
+    });
+
+    // Controls: Pause / Resume
+    document.getElementById('btn-toggle-pause').addEventListener('click', () => {
+      if (currentQueueState.status === 'paused') {
+        socket.emit('resume_dispatch');
+      } else {
+        socket.emit('pause_dispatch');
+      }
+    });
+
+    // Controls: Abort (Instant dual-channel abort without blocking confirm dialog)
+    async function handleAbort() {
+      const abortBtnText = document.querySelector('#btn-abort-queue span');
+      if (abortBtnText) abortBtnText.textContent = 'Aborting...';
+
+      // 1. Instant optimistic state update
+      const statusTag = document.getElementById('queue-status-tag');
+      if (statusTag) {
+        statusTag.textContent = 'ABORTED';
+        statusTag.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30';
+      }
+      const statusText = document.getElementById('status-message-text');
+      if (statusText) {
+        statusText.textContent = 'Broadcast aborted by operator.';
+      }
+
+      // 2. Channel 1: Real-time Socket.io event
+      if (socket) {
+        socket.emit('abort_dispatch');
+      }
+
+      // 3. Channel 2: Guaranteed REST API endpoint
+      try {
+        const res = await fetch('/api/dispatch/abort', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.state) {
+            currentQueueState = data.state;
+            renderQueueState(data.state);
+          }
+        }
+      } catch (err) {
+        console.error('HTTP Abort error:', err);
+      }
+    }
+    document.getElementById('btn-abort-queue').addEventListener('click', handleAbort);
+    document.getElementById('btn-emergency-abort').addEventListener('click', handleAbort);
+
+    // Unlink WhatsApp (Permanent Privacy Scrub)
+    document.getElementById('btn-unlink-wa').addEventListener('click', async () => {
+      if (confirm('Unlink this WhatsApp session? This will immediately logout and permanently scrub all contact lists, active dispatch data, and activity logs.')) {
+        // Clear client fields
+        document.getElementById('contacts-input').value = '';
+        validateContactsInput();
+        currentQueueState.logs = [];
+        renderLogs([]);
+
+        // Send unlink and purge to backend
+        try {
+          await fetch('/api/logs/clear', { method: 'POST' });
+        } catch (_) {}
+
+        if (socket) {
+          socket.emit('unlink_wa');
+          socket.emit('clear_logs');
+        }
+      }
+    });
+
+    // Clear and Export Logs (Server & Client Purge)
+    document.getElementById('btn-clear-log').addEventListener('click', async () => {
+      currentQueueState.logs = [];
+      document.getElementById('terminal-logs-container').innerHTML = '<div class="text-emerald-400/80 italic font-mono text-[11px]">All activity logs permanently purged from server and client memory.</div>';
+      document.getElementById('log-count-text').textContent = '(0 events)';
+
+      try {
+        await fetch('/api/logs/clear', { method: 'POST' });
+      } catch (_) {}
+
+      if (socket) {
+        socket.emit('clear_logs');
+      }
+    });
+
+    document.getElementById('btn-export-log').addEventListener('click', () => {
+      const logs = currentQueueState.logs || [];
+      if (logs.length === 0) {
+        alert('No logs to export.');
+        return;
+      }
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(logs, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `broadcast-report-${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    });
+
+    // Direct HTTP QR Fetch & Polling (Guarantees QR Display even without WebSockets)
+    async function fetchQRDirectly() {
+      try {
+        const res = await fetch('/api/qr');
+        if (res.ok) {
+          const state = await res.json();
+          if (state && (state.qrCodeDataUrl || state.connectionState)) {
+            currentWAState = state;
+            renderWAStatus(state);
+          }
+        }
+      } catch (err) {
+        console.warn('QR polling error:', err);
+      }
+    }
+
+    // Refresh QR Code Action
+    const btnRefreshQR = document.getElementById('btn-refresh-qr');
+    if (btnRefreshQR) {
+      btnRefreshQR.addEventListener('click', async () => {
+        const icon = document.getElementById('refresh-qr-icon');
+        const label = document.getElementById('refresh-qr-label');
+        if (icon) icon.classList.add('animate-spin');
+        if (label) label.textContent = 'Generating...';
+
+        try {
+          const res = await fetch('/api/qr/refresh', { method: 'POST' });
+          if (res.ok) {
+            const data = await res.json();
+            currentWAState = data;
+            renderWAStatus(data);
+          }
+        } catch (e) {
+          console.error('Refresh QR error:', e);
+        } finally {
+          setTimeout(() => {
+            if (icon) icon.classList.remove('animate-spin');
+            if (label) label.textContent = 'Refresh QR Code';
+          }, 800);
+        }
+      });
+    }
+
+    // Initialize on window load
+    window.addEventListener('DOMContentLoaded', () => {
+      initSocket();
+      validateContactsInput();
+      
+      // Immediately fetch QR via HTTP
+      fetchQRDirectly();
+
+      // Set up persistent polling every 2.5 seconds when not connected
+      setInterval(() => {
+        if (currentWAState.connectionState !== 'connected') {
+          fetchQRDirectly();
+        }
+      }, 2500);
+
+      // Set default demo message if empty
+      if (!messageInput.value) {
+        messageInput.value = 'Hello {name}! Join us for the upcoming GDG on Campus session at IET DAVV Indore.\n\nDate: Saturday, 4:00 PM\nRef: {ref}\n\nWe look forward to seeing you there!';
+        messageInput.dispatchEvent(new Event('input'));
+      }
+    });
+  </script>
+</body>
+</html>

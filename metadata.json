@@ -1,0 +1,6 @@
+{
+  "name": "GDG WhatsApp Broadcast System",
+  "description": "Production-grade WhatsApp Broadcast Engine with smart pacing, anti-detection queuing, live QR authentication, and real-time dispatch monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
